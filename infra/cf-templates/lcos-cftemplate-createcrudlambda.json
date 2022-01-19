@@ -1,0 +1,128 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS CloudFormation Template to create a Lambda function for the LCoS application. This template; 1) Creates a Lambda function to add items to the primary database, 2) Creates a Lambda function to retrieve items from the primary database",
+
+
+  "Parameters": {
+    "EnvName": {
+      "Type": "String",
+      "Description": "Name of an environment. 'dev', 'staging', 'prod' and any name.",
+      "Default" : "dev",
+      "AllowedPattern": "^.*[^0-9]$",
+      "ConstraintDescription": "Must end with non-numeric character."
+    }
+  },
+
+
+
+  "Resources": {
+
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": {
+          "Fn::Sub": "lambda-role"
+        },
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AWSLambdaExecute",
+          "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+          "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+          "arn:aws:iam::aws:policy/AmazonKinesisFullAccess"
+        ],
+        "Path": "/"
+      }
+    },
+
+
+    "LambdaADDFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "lcos-crud-add-${EnvName}"
+        },
+        "Description": "Function to add items to DynamoDB",
+        "Runtime": "python3.9",
+        "Code": {
+          "ZipFile": "def handler(event, context): return 'No code deployed to ADD function'"
+        },
+        "Handler": "cf-lambda-add.handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "ENV": {
+              "Fn::Sub": "${EnvName}"
+            },
+            "TZ": "UTC"
+          }
+        }
+      }
+    },
+
+
+    "LambdaVIEWFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "lcos-crud-view-${EnvName}"
+        },
+        "Description": "Function to get items from DynamoDB",
+        "Runtime": "python3.9",
+        "Code": {
+          "ZipFile": "def handler(event, context): return 'No code deployed to VIEW function'"
+        },
+        "Handler": "cf-lambda-view.handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "ENV": {
+              "Fn::Sub": "${EnvName}"
+            },
+            "TZ": "UTC"
+          }
+        }
+      }
+    }
+
+
+
+
+
+  },
+
+
+
+  "Outputs": {
+  }
+
+}

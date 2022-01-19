@@ -1,0 +1,57 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+ 
+  "Description" : "AWS CloudFormation Template to create a DynamoDB_Table for the LCoS application. This template; 1) Creates a DynamoDB table",
+ 
+
+  "Parameters" : {
+    "PrimaryKeyName" : {
+      "Description" : "Name of your Primary Key",
+      "Type" : "String",
+      "Default" : "lcos_masterlist_pk",
+      "MinLength": "1",
+      "MaxLength": "2048",
+      "ConstraintDescription" : "max length of 2048"
+    },
+
+    "PrimaryKeyType" : {
+      "Description" : "HashType PrimaryKey Type",
+      "Type" : "String",
+      "Default" : "S",
+      "AllowedPattern" : "[S|N]",
+      "MinLength": "1",
+      "MaxLength": "1",
+      "ConstraintDescription" : "must be either S or N"
+    }
+  },
+ 
+
+
+  "Resources" : {
+    "myDynamoDBTable" : {
+      "Type" : "AWS::DynamoDB::Table",
+      "Properties" : {
+        "AttributeDefinitions": [ { 
+          "AttributeName" : {"Ref" : "PrimaryKeyName"},
+          "AttributeType" : {"Ref" : "PrimaryKeyType"}
+        } ],
+        "KeySchema": [
+          { "AttributeName": {"Ref" : "PrimaryKeyName"}, "KeyType": "HASH" }
+        ],
+        "ProvisionedThroughput" : {
+          "ReadCapacityUnits" : "5",
+          "WriteCapacityUnits" : "10"
+        }                
+      }
+    }
+  },
+ 
+
+
+  "Outputs" : {
+    "TableName" : {
+      "Value" : {"Ref" : "myDynamoDBTable"},
+      "Description" : "Table name of the newly created DynamoDB table"
+    }
+  }
+}

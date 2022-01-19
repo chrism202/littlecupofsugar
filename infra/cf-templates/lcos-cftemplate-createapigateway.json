@@ -1,0 +1,250 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS Cloudformation template to create APIs for existing Lambda functions",
+
+
+  "Parameters": {
+    "AddFunctionName": {
+      "Type": "String",
+      "Description": "ARN of Lambda function for CRUD ADD function.",
+      "Default" : "arn:aws:lambda:us-west-2:458807392519:function:lcos-crud-add-dev"
+    },
+    "ViewFunctionName": {
+      "Type": "String",
+      "Description": "ARN of Lambda function for CRUD View function.",
+      "Default" : "arn:aws:lambda:us-west-2:458807392519:function:lcos-crud-view-dev"
+    }
+  },
+
+
+
+  "Resources": {
+
+    "LcosCrudAPI": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "LCOS CRUD API",
+        "Description": "API used for calling LCOS Lambda functions",
+        "FailOnWarnings" : true
+      }
+    },
+
+
+
+    "AddFunctionPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": {"Ref" : "AddFunctionName"},
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {"Fn::Join": ["", 
+          ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "LcosCrudAPI"}, "/*"]
+        ]}
+      }
+    },
+
+    "ViewFunctionPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:invokeFunction",
+        "FunctionName": {"Ref" : "ViewFunctionName"},
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {"Fn::Join": ["", 
+          ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "LcosCrudAPI"}, "/*"]
+        ]}
+      }
+    },
+
+
+
+
+    "LcosCrudAPIStage": {
+      "Type": "AWS::ApiGateway::Stage",
+      "Properties": {
+        "DeploymentId": {"Ref": "ApiDeployment"},
+        "MethodSettings": [{
+          "DataTraceEnabled": true,
+          "HttpMethod": "*",
+          "ResourcePath": "/*"
+        }],
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "StageName": "v1"
+      }
+    },
+
+
+
+    "ApiDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "DependsOn": ["CrudAddRequest", "CrudViewRequest"],
+      "Properties": {
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "StageName": "DummyStage"
+      }
+    },
+
+
+
+
+
+    "AddResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "ParentId": {"Fn::GetAtt": ["LcosCrudAPI", "RootResourceId"]},
+        "PathPart": "add"
+      }
+    },
+
+    "ViewResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "ParentId": {"Fn::GetAtt": ["LcosCrudAPI", "RootResourceId"]},
+        "PathPart": "view"
+      }
+    },
+
+
+
+
+    "CrudAddRequest": {
+      "DependsOn": "AddFunctionPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "GET",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {"Fn::Join": ["",
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Ref" : "AddFunctionName"}, "/invocations"]
+          ]},
+          "IntegrationResponses": [{
+            "StatusCode": 200
+          }],
+          "RequestTemplates": {
+            "application/json": {"Fn::Join" : ["", [
+              "{",
+                "\"name\": \"$input.params('name')\"",
+              "}"
+            ]]}
+          }
+        },
+        "RequestParameters": {
+          "method.request.querystring.name": false
+        },
+        "ResourceId": {"Ref": "AddResource"},
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "MethodResponses": [{
+          "StatusCode": 200
+        }]
+      }
+    },
+
+
+    "CrudViewRequest": {
+      "DependsOn": "ViewFunctionPermission",
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "GET",
+        "Integration": {
+          "Type": "AWS",
+          "IntegrationHttpMethod": "POST",
+          "Uri": {"Fn::Join": ["",
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Ref" : "ViewFunctionName"}, "/invocations"]
+          ]},
+          "IntegrationResponses": [{
+            "StatusCode": 200
+          }],
+          "RequestTemplates": {
+            "application/json": {"Fn::Join" : ["", [
+              "{",
+                "\"postid\": \"$input.params('postid')\"",
+              "}"
+            ]]}
+          }
+        },
+        "RequestParameters": {
+          "method.request.querystring.postid": false
+        },
+        "ResourceId": {"Ref": "ViewResource"},
+        "RestApiId": {"Ref": "LcosCrudAPI"},
+        "MethodResponses": [{
+          "StatusCode": 200
+        }]
+      }
+    },
+
+
+
+  "OptionsMethod": {
+    "DependsOn": "ViewFunctionPermission",
+    "Type": "AWS::ApiGateway::Method",
+    "Properties": {
+      "AuthorizationType": "NONE",
+      "RestApiId": {
+        "Ref": "LcosCrudAPI"
+      },
+      "ResourceId": {
+        "Ref": "ViewResource"
+      },
+      "HttpMethod": "OPTIONS",
+      "Integration": {
+        "IntegrationResponses": [
+          {
+            "StatusCode": 200,
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+              "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+            },
+            "ResponseTemplates": {
+              "application/json": ""
+            }
+          }
+        ],
+        "PassthroughBehavior": "WHEN_NO_MATCH",
+        "RequestTemplates": {
+          "application/json": "{\"statusCode\": 200}"
+        },
+        "Type": "MOCK"
+      },
+      "MethodResponses": [
+        {
+          "StatusCode": 200,
+          "ResponseModels": {
+            "application/json": "Empty"
+          },
+          "ResponseParameters": {
+            "method.response.header.Access-Control-Allow-Headers": false,
+            "method.response.header.Access-Control-Allow-Methods": false,
+            "method.response.header.Access-Control-Allow-Origin": false
+          }
+        }
+      ]
+    }
+  }
+  
+
+
+
+  },
+
+
+
+  "Outputs": {
+    "AddUrl": {
+      "Description": "URL of the API gateway - ADD function",
+      "Value": {"Fn::Join": ["", ["https://", {"Ref": "LcosCrudAPI"}, ".execute-api.", {"Ref": "AWS::Region"}, ".amazonaws.com/v1/add"]]}
+    },
+    "ViewUrl": {
+      "Description": "URL of the API gateway - View function",
+      "Value": {"Fn::Join": ["", ["https://", {"Ref": "LcosCrudAPI"}, ".execute-api.", {"Ref": "AWS::Region"}, ".amazonaws.com/v1/view"]]}
+    }
+
+  }
+
+}
